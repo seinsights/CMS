@@ -1,5 +1,5 @@
 // @ts-ignore: no definition
-import { customFields, utils } from '@mirrormedia/lilith-core'
+import { customFields, utils } from '@mirrormedia/seinsights-cms-core'
 import { list, graphql } from '@keystone-6/core'
 import { KeystoneContext } from '@keystone-6/core/types'
 import {
