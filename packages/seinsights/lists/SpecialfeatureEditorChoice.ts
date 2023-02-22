@@ -1,6 +1,6 @@
 import { list } from '@keystone-6/core'
 import { integer, relationship, select, timestamp } from '@keystone-6/core/fields'
-import { utils } from '@mirrormedia/lilith-core'
+import { utils } from '@mirrormedia/seinsights-cms-core'
 
 enum Status {
   Published = 'published',
