@@ -7,6 +7,8 @@ import {
   KeyBindingUtil,
   RichUtils,
   getDefaultKeyBinding,
+  SelectionState,
+  Modifier,
 } from 'draft-js'
 import { EmbeddedCodeButton } from './embedded-code'
 import { EnlargeButton } from './enlarge'
@@ -20,6 +22,7 @@ import { atomicBlockRenderer } from './block-redender-fn'
 import styled, { css } from 'styled-components'
 import { DividerButton } from './divider'
 import { FontColorButton, CUSTOM_STYLE_PREFIX_FONT_COLOR } from './font-color'
+import { getSelectedBlocksList, getBlockAfterSelectedBlock } from './utils'
 
 export const buttonNames = {
   // inline styles
@@ -300,18 +303,87 @@ export class RichTextEditor extends React.Component<
   RichTextEditorProps,
   State
 > {
-  constructor(props) {
+  constructor(props: RichTextEditorProps) {
     super(props)
     this.state = {
       isEnlarged: false,
       readOnly: false,
     }
   }
-  onChange = (editorState) => {
+  onChange = (editorState: EditorState) => {
     this.props.onChange(editorState)
   }
 
-  handleKeyCommand = (command, editorState) => {
+  handleKeyCommand = (command: string, editorState: EditorState) => {
+    const selection = editorState.getSelection()
+    // Handle atomic block removal edge cases.
+    // There are unexpected errors when users select a range (one or many) of blocks, 
+    // and enter Enter key or Backspace key.
+    // See issue: https://github.com/mirror-media/Lilith/issues/222
+    //
+    // In DraftJS, Enter key will be a `splic-block` command, 
+    // and Backspace key will be `backspace` command.
+    if ((command === 'backspace' || command === 'split-block') &&
+      !selection.isCollapsed()) {
+      const contentState = editorState.getCurrentContent()
+
+      // Get the start block of the selected range
+      const startKey = selection.getStartKey()
+      const startBlock = contentState.getBlockForKey(startKey)
+      let startOffset = selection.getStartOffset()
+      if (startBlock.getType() === 'atomic') {
+        // Force selection to include the whole start block
+        startOffset = 0 
+      }
+
+      // Get the end block of the selected range
+      let endKey = selection.getEndKey()
+      const endBlock = contentState.getBlockForKey(endKey)
+      let endOffset = selection.getEndOffset()
+      let blockType = 'unstyled'
+
+      if (endBlock.getType() === 'atomic') {
+        // Get next block after end block
+        const blockAfterEndBlock = contentState.getBlockAfter(endKey)
+        if (blockAfterEndBlock) {
+          blockType = blockAfterEndBlock.getType()
+          // Force selection to include the whole end block
+          endKey = blockAfterEndBlock.getKey()
+          endOffset = 0 
+        } else {
+          // End block is the last block in `contentState`.
+          // Include the whole text of the last block.
+          endOffset = endBlock.getText().length
+        }
+      }
+
+      // Create new selection to delete the blocks
+      const removeSelection = selection.merge({
+        anchorKey: startKey,
+        anchorOffset: startOffset,
+        focusKey: endKey,
+        focusOffset: endOffset,
+        isBackward: false,
+      })
+
+      // Delete the blocks in the selection
+      let newContentState = Modifier.removeRange(
+        contentState,
+        removeSelection,
+        'forward'
+      )
+
+      // After deletion, the text of next block after end block will be merged into end block.
+      // Therefore, next block will be an atomic block.
+      // We have to change the block type to the original one.
+      newContentState = Modifier.setBlockType(newContentState, newContentState.getSelectionAfter(), blockType)
+
+      // Push the new update into `editorState` for `redo` and `undo`.
+      const newEditorState = EditorState.push(editorState, newContentState, 'remove-range')
+      this.onChange(newEditorState)
+      return true
+    }
+
     const newState = RichUtils.handleKeyCommand(editorState, command)
     if (newState) {
       this.onChange(newState)
@@ -320,7 +392,7 @@ export class RichTextEditor extends React.Component<
     return false
   }
 
-  handleReturn = (event) => {
+  handleReturn = (event: React.KeyboardEvent) => {
     if (KeyBindingUtil.isSoftNewlineEvent(event)) {
       const { onChange, editorState } = this.props
       onChange(RichUtils.insertSoftNewline(editorState))
@@ -330,7 +402,7 @@ export class RichTextEditor extends React.Component<
     return 'not-handled'
   }
 
-  mapKeyToEditorCommand = (e) => {
+  mapKeyToEditorCommand = (e: React.KeyboardEvent) => {
     if (e.keyCode === 9 /* TAB */) {
       const newEditorState = RichUtils.onTab(
         e,
