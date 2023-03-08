@@ -27,7 +27,7 @@ export function ImageBlock(entity: DraftEntityInstance) {
         src={resized?.original}
         onError={(e) => (e.currentTarget.src = imageFile?.url)}
       />
-      <figcaption>{desc}</figcaption>
+      <figcaption contentEditable={false}>{desc}</figcaption>
     </Figure>
   )
 

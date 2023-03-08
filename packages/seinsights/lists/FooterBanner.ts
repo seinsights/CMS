@@ -1,4 +1,4 @@
-import { utils } from '@mirrormedia/lilith-core'
+import { utils } from '@mirrormedia/seinsights-cms-core'
 import { list } from '@keystone-6/core'
 import {
   text,
