@@ -79,11 +79,6 @@ const listConfigurations = list({
     }),
     manualOrderOfSpecialFeatures: json({
       label: 'SpecialFeature 手動排序結果',
-      ui: {
-        itemView: {
-          fieldMode: 'read',
-        },
-      },
     }),
     url: text({
       label: '外連網址',
